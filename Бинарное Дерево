@@ -1,0 +1,192 @@
+#define _CRT_SECURE_NO_WARNINGS
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <locale.h>
+#include <windows.h>
+
+#define MAX_NAME_LEN 256
+
+typedef struct binareTree {
+	char name[MAX_NAME_LEN]; // данный в узлах бинарного дерева
+	struct binareTree *left, *right;
+} binareTree;
+
+binareTree* createNode(const char* name) {
+	binareTree* newNode = (binareTree*)malloc(sizeof(binareTree));
+	if (newNode == NULL) {
+		printf("Ошибка выделения памяти\n");
+		exit(1);
+	}
+
+	strncpy(newNode->name, name, MAX_NAME_LEN - 1);
+	newNode->name[MAX_NAME_LEN -1] = '\0';
+	newNode->left = NULL;
+	newNode->right = NULL;
+	return newNode;
+}
+
+int insert(binareTree** root, const char* name) { // шаг 1
+	if (*root == NULL) {
+		*root = createNode(name);
+		return 1;
+	}
+
+	binareTree* current = *root;
+
+	while (current != NULL) {
+		int cmp = strcmp(name, current->name); // шаг 2, сравнение имя с текущем узлом
+		if (cmp < 0) { // шаг 3 и 4
+			if (current->left != NULL) {
+				current = current->left;
+			}
+			else { // шаг 5
+				current->left = createNode(name);
+				return 1;
+			}
+		}
+		else if (cmp == 0) {
+			printf("Ошибка insert. Индификатор '%s' уже существует \n", name); // Шаг 3, ошибка 
+			return 0;
+		}
+		else {
+			if (current->right != NULL) { // Шаг 6
+				current = current->right; // шаг 2
+			}
+			else {
+				current->right = createNode(name); // шаг 7
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+binareTree* lookup(binareTree* root, const char* name) {
+	if (root == NULL) {
+		return NULL;
+	}
+
+	binareTree* current = root;
+
+	while (current != NULL) {
+		int cmp = strcmp(name, current->name); // шаг 2
+		if (cmp == 0) {
+			return current; // шаг 3
+		}
+		if (cmp < 0) {
+			current = current->left; // шаг 5
+		}
+		else {
+			current = current->right; // шаг 6
+		}
+	}
+	return NULL;
+}
+
+void printInOrder(binareTree* root) {
+	if (root != NULL) {
+		printInOrder(root->left);
+		printf(" - %s\n", root->name);
+		printInOrder(root->right);
+	}
+}
+
+void freeTree(binareTree* root) {
+	if (root != NULL) {
+		freeTree(root->left);
+		freeTree(root->right);
+		free(root);
+	}
+}
+
+void trimNewline(char* str) {
+	size_t len = strlen(str);
+	while (len > 0 && (str[len - 1] == '\n' || str[len - 1] == '\r')) {
+		str[--len] = '\0';
+	}
+}
+
+
+int main() {
+	SetConsoleCP(1251);
+	SetConsoleOutputCP(1251);
+	setlocale(LC_ALL, "Russian");
+
+	binareTree* tree = NULL;
+	char buffer[MAX_NAME_LEN];
+	int choice;
+
+	printf("Выберите источник данных: \n1. Консоль \n2. Текстовый файл \n Ваш выбор: ");
+	if (scanf("%d", &choice) != 1) {
+		return 1;
+	}
+	(void)getchar();
+
+	if (choice == 1) {
+		printf("\nВводите идентификаторы по одному в строке для завершения введите !:\n");
+		while (1) {
+			if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
+				break;
+			}
+			trimNewline(buffer);
+			if (strcmp(buffer, "!") == 0) {
+				break;
+			}
+			if (strlen(buffer) > 0) {
+				insert(&tree, buffer);
+			}
+		}
+	}
+
+	else if (choice == 2) {
+		char filename[256];
+		printf("Введите имя файла: ");
+		if (fgets(filename, sizeof(filename), stdin) != NULL) {
+			trimNewline(filename);
+		}
+
+		FILE* file = fopen(filename, "r");
+		if (file == NULL) {
+			printf("Ошибка открытия файла '%s'\n", filename);
+			return 1;
+		}
+
+		while (fgets(buffer, sizeof(buffer), file) != NULL) {
+			trimNewline(buffer);
+			if (strlen(buffer) > 0) {
+				insert(&tree, buffer);
+			}
+		}
+		fclose(file);
+		printf("Файл успешно прочитан.\n");
+	}
+
+	printf("Построенное бинарное дерево\n");
+	printInOrder(tree);
+
+	printf("Поиск идентификаторов\n");
+	while (1) {
+		printf("Введите имя для поиска или $ для выхода: ");
+		if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
+			break;
+		}
+		trimNewline(buffer);
+
+		if (strcmp(buffer, "$") == 0) {
+			break;
+		}
+
+		binareTree* found = lookup(tree, buffer);
+		if (found != NULL) {
+			printf("Результат. Идентификатор '%s' найден в дереве.\n", found->name);
+		}
+		else {
+			printf("Результат: Идентификатор '%s' не найдет.\n", buffer);
+		}
+	}
+
+	freeTree(tree);
+	return 0;
+}
